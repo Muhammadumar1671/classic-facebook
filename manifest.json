@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Classic Facebook",
+  "version": "2.0.0",
+  "description": "Brings back the 2020 desktop Facebook look: the blue bar, centered page and classic News Feed.",
+  "permissions": ["storage"],
+  "action": {
+    "default_title": "Classic Facebook",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.facebook.com/*"],
+      "css": ["classic.css"],
+      "js": ["settings.js", "content.js", "header.js", "feed.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

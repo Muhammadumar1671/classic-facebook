@@ -1,0 +1,731 @@
+/*
+ * Classic Facebook: puts the current Facebook UI back into the 2020 desktop
+ * look: the 42px blue bar, a centered 1012px page with a 180px nav, a 500px
+ * News Feed and a 308px right column, boxed posts and small dense text.
+ *
+ * Facebook's class names are generated and change constantly, so nothing here
+ * targets them. It overrides Facebook's own design-token custom properties
+ * (--accent, --web-wash, --card-corner-radius, ...), finds landmarks by ARIA
+ * role and the markers Facebook puts on posts, and styles the parts feed.js
+ * tags with data-cfb-part="...".
+ *
+ * Facebook declares its tokens on <html> and again on nested
+ * .__fb-light-mode / .__fb-dark-mode containers, so token overrides are set on
+ * both, with !important so they beat Facebook's own declaration on the same
+ * element.
+ *
+ * Each block is gated by a token content.js writes into <html data-cfb="...">.
+ * Colors not set by the "colors" block come from Facebook's tokens, so the
+ * layout follows dark mode.
+ */
+
+html {
+  --cfb-blue: #4267b2;
+  --cfb-blue-dark: #365899;
+  --cfb-bar-border: #29487d;
+  --cfb-link: #385898;
+  --cfb-wash: #e9ebee;
+  --cfb-text: #1d2129;
+  --cfb-text-2: #606770;
+  --cfb-text-3: #90949c;
+  --cfb-border: #dddfe2;
+  --cfb-comment: #f2f3f5;
+  --cfb-button: #f5f6f7;
+  --cfb-button-border: #ccd0d5;
+  --cfb-button-text: #4b4f56;
+  --cfb-highlight: #edf2fa;
+
+  /* What the layout uses; the colors block swaps in the classic values. */
+  --cfb-box-head: var(--web-wash);
+  --cfb-faint-text: var(--secondary-text);
+  --cfb-bar-text: var(--primary-text);
+
+  /* The 2020 page: a 1012px column centered in the window. */
+  --cfb-page-width: 1012px;
+  --cfb-edge: max(8px, calc(50% - var(--cfb-page-width) / 2));
+}
+
+/* ---- colors: classic blue + grey palette (light mode only) ---- */
+
+html[data-cfb~="colors"][data-cfb~="light"],
+html[data-cfb~="colors"][data-cfb~="light"] .__fb-light-mode {
+  --web-wash: var(--cfb-wash) !important;
+  --wash: var(--cfb-border) !important;
+  --accent: var(--cfb-blue) !important;
+  --base-blue: var(--cfb-blue) !important;
+  --fds-blue-60: var(--cfb-blue) !important;
+  --blue-link: var(--cfb-link) !important;
+  --primary-text: var(--cfb-text) !important;
+  --secondary-text: var(--cfb-text-2) !important;
+  --primary-icon: var(--cfb-text) !important;
+  --secondary-icon: var(--cfb-text-2) !important;
+  --divider: var(--cfb-border) !important;
+  --comment-background: var(--cfb-comment) !important;
+  --primary-button-background: var(--cfb-blue) !important;
+  --primary-button-pressed: var(--cfb-blue-dark) !important;
+  --primary-deemphasized-button-background: var(--cfb-highlight) !important;
+  --primary-deemphasized-button-text: var(--cfb-blue) !important;
+  --secondary-button-background: var(--cfb-button) !important;
+  --secondary-button-text: var(--cfb-button-text) !important;
+  --secondary-button-stroke: var(--cfb-button-border) !important;
+  --new-notification-background: var(--cfb-highlight) !important;
+  --toggle-active-background: var(--cfb-highlight) !important;
+  --toggle-button-active-background: var(--cfb-highlight) !important;
+  --toggle-active-text: var(--cfb-blue) !important;
+  --toggle-active-icon: var(--cfb-blue) !important;
+  --focus-ring-blue: var(--cfb-blue) !important;
+  --input-label-color-highlighted: var(--cfb-blue) !important;
+  --radio-checked-icon-color: var(--cfb-blue) !important;
+
+  --cfb-box-head: var(--cfb-button);
+  --cfb-faint-text: var(--cfb-text-3);
+}
+
+/* ---- header: the 2020 blue bar ----
+   The bar is four fixed boxes inside [role="banner"]: the logo, the search
+   box, the bar itself (which holds the tab strip) and the account buttons.
+   They are moved onto the centered page, the tabs make way for header.js's
+   "[photo] Name  Home" links, and the menu button becomes "Create". */
+
+html[data-cfb~="header"],
+html[data-cfb~="header"] :is(.__fb-light-mode, .__fb-dark-mode) {
+  --header-height: 43px !important;
+}
+
+/* Snapshot of the page-level values, so popovers that open from the bar can
+   be put back to normal after the bar's white-on-blue overrides. */
+html {
+  --cfb-page-accent: var(--accent);
+  --cfb-page-blue-link: var(--blue-link);
+  --cfb-page-primary-icon: var(--primary-icon);
+  --cfb-page-secondary-icon: var(--secondary-icon);
+  --cfb-page-filter-accent: var(--filter-accent);
+  --cfb-page-filter-primary-icon: var(--filter-primary-icon);
+  --cfb-page-filter-secondary-icon: var(--filter-secondary-icon);
+  --cfb-page-filter-deemphasized-icon: var(--filter-primary-deemphasized-button-icon);
+  --cfb-page-secondary-button-background: var(--secondary-button-background);
+  --cfb-page-deemphasized-background: var(--primary-deemphasized-button-background);
+  --cfb-page-deemphasized-text: var(--primary-deemphasized-button-text);
+  --cfb-page-hover-overlay: var(--hover-overlay);
+  --cfb-page-comment-background: var(--comment-background);
+}
+
+/* The account box is the one with the navigation as a direct child. Its open
+   menus hold search boxes and lists of their own, so the search box and bar
+   selectors leave it out. */
+html[data-cfb~="header"] {
+  /* Logo: a 24px square, at the page's left edge. */
+  & [role="banner"] > div:has(> a[href="/"]) {
+    left: var(--cfb-edge) !important;
+    width: 24px !important;
+    margin: 0 !important;
+    align-items: center !important;
+    overflow: hidden !important;
+
+    & > a {
+      width: 24px !important;
+      height: 24px !important;
+    }
+
+    & svg {
+      width: 24px !important;
+      height: 24px !important;
+      border-radius: 3px !important;
+    }
+  }
+
+  /* Search: a wide flat box with the magnifier on a grey button at the end. */
+  & [role="banner"] > div:has(input[type="search"]):not(:has(> [role="navigation"])) {
+    left: calc(var(--cfb-edge) + 32px) !important;
+    width: 400px !important;
+
+    & div:has(label) {
+      padding-inline: 0 !important;
+    }
+
+    /* The back arrow and its spacer are only there while searching. */
+    & div:has(> label):not(:focus-within) > :not(label) {
+      display: none !important;
+    }
+
+    & label {
+      height: 24px !important;
+      min-height: 0 !important;
+      flex: 1 1 auto !important;
+      flex-direction: row-reverse !important;
+      border-radius: 2px !important;
+      overflow: hidden !important;
+    }
+
+    & label > span {
+      width: 40px !important;
+      height: 24px !important;
+      padding: 0 !important;
+      justify-content: center !important;
+      align-items: center !important;
+      background-color: var(--secondary-button-background) !important;
+    }
+
+    & label > span svg {
+      position: static !important;
+    }
+
+    & input {
+      height: 24px !important;
+      padding: 0 8px !important;
+      font-size: 12px !important;
+    }
+  }
+
+  /* The bar itself: no tab strip, no drop shadow. */
+  & [role="banner"] > div:has([role="navigation"] > ul):not(:has(> [role="navigation"])) {
+    & [role="navigation"]:has(> ul) {
+      display: none !important;
+    }
+
+    & > div > div:empty {
+      display: none !important;
+    }
+  }
+
+  /* Account buttons: plain icons at the page's right edge. */
+  & [role="banner"] > div:has(> [role="navigation"]) {
+    right: var(--cfb-edge) !important;
+    /* Keeps Facebook's width (the menus open inside it), so the spare width
+       on the left lets clicks through to the links beside it. */
+    pointer-events: none !important;
+
+    & > * {
+      pointer-events: auto !important;
+    }
+
+    & > [role="navigation"] {
+      anchor-name: --cfb-account;
+      width: fit-content !important;
+      margin-left: auto !important;
+      gap: 0 !important;
+      padding: 0 !important;
+      align-items: center !important;
+    }
+
+    & > [role="navigation"] > * {
+      height: 42px !important;
+      align-items: center !important;
+      margin: 0 !important;
+    }
+
+    & > [role="navigation"] [role="button"][aria-haspopup] {
+      width: 32px !important;
+      height: 32px !important;
+      border-radius: 2px !important;
+    }
+
+    /* Facebook's menu holds the "Create" list, so it gets the old label. */
+    & > [role="navigation"] > :first-child [role="button"][aria-haspopup] {
+      width: auto !important;
+      padding: 0 10px !important;
+
+      & > svg {
+        display: none !important;
+      }
+
+      &::before {
+        content: "Create";
+        color: var(--cfb-bar-text);
+        font-size: 12px;
+        font-weight: bold;
+      }
+    }
+
+    /* Your photo: zoom, because the svg's image doesn't scale with it. */
+    & > [role="navigation"] > :last-child [role="button"][aria-haspopup] {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    & > [role="navigation"] > :last-child [role="button"][aria-haspopup] > div {
+      zoom: 0.6;
+    }
+  }
+
+  /* header.js's links, pinned to the left of the account buttons. */
+  & #cfb-toplinks {
+    position: fixed;
+    position-anchor: --cfb-account;
+    top: 0;
+    right: anchor(left);
+    z-index: 1;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    padding-right: 4px;
+
+    & a {
+      display: flex;
+      align-items: center;
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 2px;
+      color: var(--cfb-bar-text);
+      font-size: 12px;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    & a:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+
+    & a.cfb-me {
+      padding-left: 2px;
+    }
+
+    & img {
+      width: 24px;
+      height: 24px;
+      margin-right: 6px;
+      border-radius: 50%;
+    }
+  }
+}
+
+html:not([data-cfb~="header"]) #cfb-toplinks {
+  display: none;
+}
+
+@supports not (anchor-name: --cfb-account) {
+  html[data-cfb~="header"] #cfb-toplinks {
+    right: calc(var(--cfb-edge) + 180px);
+  }
+}
+
+/* White on blue: light mode only. */
+html[data-cfb~="header"][data-cfb~="light"] {
+  --cfb-bar-text: #fff;
+}
+
+html[data-cfb~="header"][data-cfb~="light"] [role="banner"] {
+  --nav-bar-background: var(--cfb-blue) !important;
+  --fb-logo: #fff !important;
+  --accent: #fff !important;
+  --blue-link: #fff !important;
+  --primary-icon: #fff !important;
+  --secondary-icon: rgba(255, 255, 255, 0.8) !important;
+  --filter-accent: invert(100%) !important;
+  --filter-primary-icon: invert(100%) !important;
+  --filter-secondary-icon: invert(100%) opacity(80%) !important;
+  --filter-primary-deemphasized-button-icon: invert(100%) !important;
+  --secondary-button-background: transparent !important;
+  --primary-deemphasized-button-background: rgba(0, 0, 0, 0.15) !important;
+  --primary-deemphasized-button-text: #fff !important;
+  --hover-overlay: rgba(0, 0, 0, 0.1) !important;
+  /* The search box: white, like the old one. */
+  --comment-background: #fff !important;
+
+  & > div:has([role="navigation"] > ul):not(:has(> [role="navigation"])) > div {
+    background-color: var(--cfb-blue) !important;
+    box-shadow: inset 0 -1px 0 var(--cfb-bar-border) !important;
+  }
+
+  & label:has(input[type="search"]) {
+    background-color: #fff !important;
+  }
+
+  & label:has(input[type="search"]) > span {
+    background-color: var(--cfb-button) !important;
+  }
+
+  /* Logo: a white square with the blue "f" (the round logo's second path). */
+  & [aria-label="Facebook"] svg {
+    color: #fff !important;
+    background-color: #fff !important;
+  }
+
+  & [aria-label="Facebook"] svg[viewBox="0 0 36 36"] path + path {
+    fill: var(--cfb-blue) !important;
+  }
+}
+
+/* Menus, notification panels and the search box sit inside the bar's DOM
+   but have white backgrounds, so they get the normal values back. */
+html[data-cfb~="header"][data-cfb~="light"] [role="banner"] :is([role="dialog"], [role="menu"], [role="listbox"], [role="tooltip"], label:has(input)) {
+  --accent: var(--cfb-page-accent) !important;
+  --blue-link: var(--cfb-page-blue-link) !important;
+  --primary-icon: var(--cfb-page-primary-icon) !important;
+  --secondary-icon: var(--cfb-page-secondary-icon) !important;
+  --filter-accent: var(--cfb-page-filter-accent) !important;
+  --filter-primary-icon: var(--cfb-page-filter-primary-icon) !important;
+  --filter-secondary-icon: var(--cfb-page-filter-secondary-icon) !important;
+  --filter-primary-deemphasized-button-icon: var(--cfb-page-filter-deemphasized-icon) !important;
+  --secondary-button-background: var(--cfb-page-secondary-button-background) !important;
+  --primary-deemphasized-button-background: var(--cfb-page-deemphasized-background) !important;
+  --primary-deemphasized-button-text: var(--cfb-page-deemphasized-text) !important;
+  --hover-overlay: var(--cfb-page-hover-overlay) !important;
+}
+
+html[data-cfb~="header"][data-cfb~="light"] [role="banner"] :is([role="dialog"], [role="menu"], [role="listbox"], [role="tooltip"]) {
+  --comment-background: var(--cfb-page-comment-background) !important;
+}
+
+/* ---- layout: the 2020 page (home only) ----
+   The home page is one flex row: the left nav, the feed column and
+   #right_rail_container. It becomes a centered 1012px page with 180px,
+   500px and 308px columns. */
+
+html[data-cfb~="layout"] {
+  & div:has(> #right_rail_container):has(> [role="main"]) {
+    justify-content: center !important;
+    gap: 12px !important;
+    max-width: var(--cfb-page-width) !important;
+    margin-inline: auto !important;
+  }
+
+  & [role="main"]:has(~ #right_rail_container) {
+    flex: 0 1 500px !important;
+    min-width: 0 !important;
+    padding: 12px 0 0 !important;
+  }
+
+  & [role="main"]:has(~ #right_rail_container) > div {
+    width: 500px !important;
+  }
+
+  & #right_rail_container {
+    flex: 0 1 308px !important;
+    width: 308px !important;
+    min-width: 0 !important;
+    max-width: 308px !important;
+  }
+
+  /* Left nav: slim rows with a 20px icon and 12px text. */
+  & [role="navigation"]:has(~ #right_rail_container) {
+    flex: 0 0 180px !important;
+    width: 180px !important;
+    min-width: 0 !important;
+    max-width: 180px !important;
+
+    & :is(a, [role="button"]) > div {
+      min-height: 0 !important;
+      padding: 2px 8px !important;
+      margin: 0 !important;
+    }
+
+    /* The icons are 36px sprites; zoom keeps their sprite offsets right. */
+    & :is(a, [role="button"]) > div > div > div:first-child:has(:is(svg, i, img)) {
+      zoom: 0.5556;
+    }
+
+    & :is(a, [role="button"]) > div > div > div:first-child + div > div {
+      padding: 0 0 0 8px !important;
+    }
+
+    /* One line per row, cut off with "...", like the old nav. */
+    & :is(li, [role="button"]) span {
+      font-size: 12px !important;
+      line-height: 16px !important;
+      -webkit-line-clamp: 1 !important;
+      line-clamp: 1 !important;
+    }
+
+    & h2 span,
+    & h3 span {
+      font-size: 12px !important;
+      font-weight: bold !important;
+      color: var(--cfb-faint-text) !important;
+    }
+
+    & footer,
+    & footer * {
+      font-size: 11px !important;
+    }
+  }
+
+  /* Right column: each section in a white box, its heading small and grey. */
+  & [data-cfb-part="rail-box"] {
+    margin: 0 0 12px !important;
+    padding-bottom: 4px !important;
+    background-color: var(--card-background) !important;
+    border: 1px solid var(--divider) !important;
+    border-radius: 3px !important;
+    overflow: hidden !important;
+  }
+
+  & [data-cfb-part="rail-box"] > div:empty {
+    display: none !important;
+  }
+
+  & [data-cfb-part="rail-head"] {
+    padding: 8px 0 0 !important;
+
+    & :is(h2, h3),
+    & :is(h2, h3) span {
+      font-size: 12px !important;
+      font-weight: bold !important;
+      line-height: 16px !important;
+      color: var(--cfb-faint-text) !important;
+    }
+  }
+}
+
+/* ---- feed: the 2020 News Feed ----
+   The composer and stories become titled boxes and posts get the 2020
+   card: thin border, blue names, grey timestamps, a summary row and three
+   equal Like / Comment / Share buttons. feed.js tags the parts. */
+
+html[data-cfb~="feed"] {
+  /* Boxes with a thin border instead of floating rounded cards. */
+  & :is([data-cfb-part="card"], [data-cfb-part="box"]) {
+    border: 1px solid var(--divider) !important;
+    border-radius: 3px !important;
+    box-shadow: none !important;
+  }
+
+  /* "Create a post": a grey title strip, the prompt, then a row of
+     labelled pill buttons. The title is the box's own aria-label. */
+  & [role="main"] [role="region"]:has(> div > a + [role="button"]) {
+    display: block !important;
+    padding: 0 !important;
+
+    &::before {
+      content: attr(aria-label);
+      display: block;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--divider);
+      border-radius: 3px 3px 0 0;
+      background-color: var(--cfb-box-head);
+      color: var(--secondary-text);
+      font-size: 12px;
+      font-weight: bold;
+      line-height: 16px;
+    }
+
+    & > div {
+      flex-wrap: wrap !important;
+      padding: 12px 12px 0 !important;
+    }
+
+    & > div > [role="button"] {
+      background-color: transparent !important;
+      padding: 0 4px !important;
+    }
+
+    & > div > [role="button"] span {
+      font-size: 14px !important;
+      color: var(--cfb-faint-text) !important;
+    }
+
+    & > div > div:last-child {
+      flex: 1 0 100% !important;
+      gap: 8px !important;
+      margin: 12px -12px 0 !important;
+      padding: 8px 12px !important;
+      border-top: 1px solid var(--divider) !important;
+    }
+
+    & > div > div:last-child > * {
+      flex: 0 0 auto !important;
+    }
+
+    & > div > div:last-child [role="button"][aria-label] {
+      width: auto !important;
+      height: 32px !important;
+      padding: 0 12px 0 8px !important;
+      border-radius: 16px !important;
+      background-color: var(--secondary-button-background) !important;
+
+      & img {
+        width: 20px !important;
+        height: 20px !important;
+      }
+
+      &::after {
+        content: attr(aria-label);
+        margin-left: 6px;
+        color: var(--secondary-button-text);
+        font-size: 12px;
+        font-weight: bold;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  /* Stories: a white box with a "Stories" title. */
+  & [role="main"] [data-focus-target="stories_tray"] {
+    margin: 0 0 12px !important;
+    padding: 0 0 4px !important;
+    background-color: var(--card-background) !important;
+    border: 1px solid var(--divider) !important;
+    border-radius: 3px !important;
+
+    &::before {
+      content: attr(aria-label);
+      display: block;
+      padding: 10px 12px 0;
+      color: var(--primary-text);
+      font-size: 12px;
+      font-weight: bold;
+      line-height: 16px;
+    }
+  }
+
+  /* Author line: 14px bold blue names. */
+  & [data-cfb-part="author"],
+  & [data-cfb-part="author"] span {
+    font-size: 14px !important;
+    line-height: 1.38 !important;
+  }
+
+  & [data-cfb-part="author"] a,
+  & [data-cfb-part="author"] a * {
+    color: var(--blue-link) !important;
+    font-weight: bold !important;
+  }
+
+  /* Timestamp line: small and grey. */
+  & [data-cfb-part="meta"],
+  & [data-cfb-part="meta"] :is(span, a) {
+    font-size: 12px !important;
+    font-weight: normal !important;
+    color: var(--cfb-faint-text) !important;
+  }
+
+  /* Post text: 14px. */
+  & [data-cfb-part="card"] [data-ad-comet-preview="message"],
+  & [data-cfb-part="card"] [data-ad-comet-preview="message"] :is(span, div) {
+    font-size: 14px !important;
+    line-height: 1.38 !important;
+  }
+
+  & [data-cfb-part="card"] [data-ad-comet-preview="message"] [role="button"] {
+    color: var(--blue-link) !important;
+  }
+
+  /* The bar: a summary row ("[reactions] 12 ... 3 Comments") over three
+     equal buttons. feed.js copies the counts onto the bar. */
+  & [data-cfb-part="actions"] {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    align-items: center !important;
+    margin: 0 !important;
+    padding: 0 12px 4px !important;
+
+    &::after {
+      content: attr(data-cfb-tally);
+      grid-row: 1;
+      grid-column: 2 / 4;
+      justify-self: end;
+      padding: 8px 0;
+      color: var(--cfb-faint-text);
+      font-size: 12px;
+      white-space: pre;
+    }
+
+    &[data-cfb-tally=""]::after {
+      padding: 0;
+    }
+  }
+
+  /* Facebook fixes the bar's box at one row (44px). */
+  & div:has(> [data-cfb-part="actions"]) {
+    height: auto !important;
+  }
+
+  & [data-cfb-part="reactions"] {
+    grid-row: 1 !important;
+    grid-column: 1 / 3 !important;
+    justify-self: start !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    margin: 0 !important;
+    padding: 8px 0 !important;
+
+    &::after {
+      content: attr(data-cfb-count);
+      margin-left: 4px;
+      color: var(--cfb-faint-text);
+      font-size: 12px;
+    }
+  }
+
+  & [data-cfb-part^="action-"] {
+    grid-row: 2 !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 2px 0 !important;
+    border-top: 1px solid var(--divider) !important;
+  }
+
+  & [data-cfb-part^="action-"] > [role="button"] {
+    justify-content: center !important;
+  }
+
+  & [data-cfb-part="action-like"] {
+    grid-column: 1 !important;
+  }
+
+  & [data-cfb-part="action-comment"] {
+    grid-column: 2 !important;
+  }
+
+  & [data-cfb-part="action-share"] {
+    grid-column: 3 !important;
+  }
+
+  /* The counts move to the summary row. The bar's other child is an invisible
+     "React" strip; hovering Like still opens the reactions. */
+  & [data-cfb-part="count"],
+  & [data-cfb-part="actions"] > :not([data-cfb-part]) {
+    display: none !important;
+  }
+
+  & [data-cfb-label]::after {
+    content: attr(data-cfb-label);
+    margin-left: 6px;
+    color: var(--secondary-text);
+    font-size: 13px;
+    font-weight: bold;
+  }
+}
+
+/* ---- square: small radii instead of the big rounded cards ---- */
+
+html[data-cfb~="square"],
+html[data-cfb~="square"] :is(.__fb-light-mode, .__fb-dark-mode) {
+  --card-corner-radius: 3px !important;
+  --dialog-corner-radius: 3px !important;
+  --toast-corner-radius: 3px !important;
+  --tooltip-corner-radius: 3px !important;
+  --alert-banner-corner-radius: 3px !important;
+  --glimmer-corner-radius: 3px !important;
+  --messenger-card-corner-radius: 3px !important;
+  --button-corner-radius: 2px !important;
+  --button-corner-radius-medium: 2px !important;
+  --button-corner-radius-large: 3px !important;
+  --input-corner-radius: 2px !important;
+  --chip-corner-radius: 2px !important;
+  --list-cell-corner-radius: 2px !important;
+  --nav-list-cell-corner-radius: 2px !important;
+  --menu-item-base-overlay-radius: 2px !important;
+  --text-badge-corner-radius: 2px !important;
+  --image-corner-radius: 2px !important;
+}
+
+/* ---- compact: smaller text, tighter lists and buttons ---- */
+
+/* Facebook sizes nearly all text in rem, so this scales it all at once:
+   15px text becomes ~13px, close to the old 12-14px. */
+html[data-cfb~="compact"] {
+  font-size: 14px !important;
+}
+
+html[data-cfb~="compact"],
+html[data-cfb~="compact"] :is(.__fb-light-mode, .__fb-dark-mode) {
+  --nav-list-cell-padding-vertical: 8px !important;
+  --nav-list-cell-padding-vertical-with-addon: 8px !important;
+  --button-height-medium: 30px !important;
+  --button-height-large: 34px !important;
+  --button-padding-horizontal-medium: 12px !important;
+  --button-padding-horizontal-large: 12px !important;
+}
